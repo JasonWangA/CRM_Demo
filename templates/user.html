@@ -1,0 +1,18 @@
+{% extends 'layout/_layout.html' %}
+
+{% block  content %}
+    <h1>User</h1>
+{% endblock %}
+
+{% block js %}
+    <script>
+        $(function(){
+            InitMenu();
+        });
+        function InitMenu(){
+            $('#menu_user').addClass('active');
+            var text = $('#menu_user').parent().prev().find('.panel-title').text();
+            $('#aa').accordion('select',text);
+        }
+    </script>
+{% endblock %}

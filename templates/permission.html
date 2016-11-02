@@ -1,0 +1,231 @@
+{% extends 'layout/_layout.html' %}
+
+{% block  content %}
+
+    <div style="float: left;width: 300px">
+        <ul id="pers_tree" ></ul>
+        <!-- <ul id="tt" class="easyui-tree" data-options="url:'/get_permission_tree/',method:'get',animate:true"></ul> -->
+    </div>
+
+    <div style="float: left;width: 600px">
+         <table id="dg"></table>
+    </div>
+    <div id="dlg" class="easyui-dialog" style="width:400px;height:200px;padding:10px 20px" closed="true" buttons="#dlg-buttons"> <!-#easyui订制模态对话框，默认关闭状态->
+        <form id="fm1">
+            <div class="input-group clearfix">
+                <div class="group-label" style="width: 80px;">
+                    <span>标题：</span>
+                </div>
+                <div class="group-input" style="width: 300px;">
+                    <input id="dlg_nid" style="width: 200px;display: none"  name="nid"/>
+                    <input id="dlg_province" style="width: 200px" class="easyui-textbox" type="text" name="caption" data-options="required:true,missingMessage:'省份不能为空'" />
+                </div>
+            </div>
+        </form>
+    </div>
+    <div id="dlg-buttons">　
+        <span id="dlg_summary" style="color: red"></span>
+        <a href="#" class="easyui-linkbutton" iconCls="icon-ok" onclick="Save()">保存</a>
+        <a href="#" class="easyui-linkbutton" iconCls="icon-cancel" onclick="javascript:$('#dlg').dialog('close')">取消</a>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script>
+        $(function(){
+            InitTree();
+        });
+
+        function InitTree(){
+            $('#pers_tree').tree({
+                url: '/get_permission_tree/',
+                method: 'get',
+                animate: true,
+                onClick: function(node){
+					console.log(node.text,node.id);
+                    InitTable(node.id);
+                    InitPagination();
+				}
+            })
+        }
+
+        function InitTable(node_parent_id){
+            $('#dg').datagrid({
+                title: '权限管理',
+                url: '/get_child_permission/',
+                method: 'get',
+                singleSelect: true,
+                rownumbers: true,
+                striped: true,
+                queryParams: {
+                    node_parent_id: node_parent_id
+                },
+                columns: [[
+                    {
+                        field: 'ck',
+                        checkbox: true
+                    },
+                    {
+                        field: 'caption',
+                        title: '标题',
+                        width: 180,
+                        align: 'center'
+                    },
+                    {
+                        field: 'code',
+                        title: 'URL',
+                        width: 180,
+                        align: 'center'
+                    }
+
+                ]],
+                toolbar: [
+                    {
+                        text: '添加',
+                        iconCls: 'icon-add',
+                        handler: AddRow
+                    }, {
+                        text: '删除',
+                        iconCls: 'icon-remove',
+                        handler: RemoveRow
+                    }, {
+                        text: '修改',
+                        iconCls: 'icon-edit',
+                        handler: EditRow
+                    }
+                ],
+                pagePosition: 'both',
+                pagination: true,
+                pageSize: 10,
+                pageNumber: 1,
+                pageList: [10, 20, 50]
+            })
+        }
+
+        function AddRow(){
+            // 显示对话框，由于希望添加则将方法设置为POST
+            $('#fm1').form('clear');
+            $('#dlg').dialog('open').dialog('setTitle','创建省份');
+            $('#dlg_summary').empty();
+            METHOD = 'post';　　
+        }
+        function RemoveRow(){
+            console.log('RemoveRow');
+            // 获取已经选中的行
+           var rows = $('#dg').datagrid('getSelections');
+           console.log(rows);
+           if(rows.length<=0){
+               // 警告框
+               $.messager.alert('警告', '请选择要删除的行', 'warning');
+           }else if(rows.length>1){
+               $.messager.alert('警告', '不支持批量删除');
+           }else{
+               // 确认框
+               $.messager.confirm('确定', '您确定要删除吗？', function (status) { //easyui订制的确认框
+                   if(status){
+                       // 点击确定
+                       // 获取当前选中行的值，Ajax发送到后台
+                       var row = rows[0];
+                       $.ajax({
+                           url: '/delete_p/',
+                           type: 'delete',
+                           data: {nid: row.nid},
+                           dataType: 'json',
+                           success: function (data) {
+                               if(data.status){
+                                   //删除成功
+                                   $.messager.show({  //easyui订制的messager框
+                                       msg:'删除成功',
+                                       showType:'slide', //淡出
+                                       showSpeed: 500, //速度
+                                       timeout: 5,  //显示5秒
+                                       style:{
+                                           right:'',
+                                           top:document.body.scrollTop+document.documentElement.scrollTop, //在屏幕上方显示
+                                           bottom:''
+                                       }
+                                   });
+                                   // 重新加载表格
+                                   var rowIndex = $('#dg').datagrid('getRowIndex', row);
+                                   $('#dg').datagrid('deleteRow',rowIndex);
+                                   $('#dg').datagrid('reload');
+
+                                   // 删除指定行
+                                   //var rowIndex = dt.datagrid('getRowIndex', row);
+                                   //dt.datagrid('deleteRow',rowIndex);
+
+                               }else{
+                                   //删除失败
+                                   // $.messager.alert('错误信息', data.summary ,'error');
+                                   $.messager.show({  //显示错误信息
+                                       icon: 'error',
+                                       title:'错误信息',
+                                       msg:data.summary,
+                                       showType:'slide',
+                                       timeout: 0,
+                                       style:{
+                                           right:'',
+                                           top:document.body.scrollTop+document.documentElement.scrollTop,
+                                           bottom:''
+                                       }
+                                   });
+                               }
+                           }
+                       });
+                   }
+               })
+           }
+        }
+        function EditRow(){
+            console.log('EditRow');
+            // 显示对话框，由于希望修改则将方法设置为PUT
+
+          // 获取选中的值，将其赋值到页面上，然后ajax提交
+          var row = $('#dg').datagrid('getSelected');
+          $('#dlg_summary').empty();
+          if(row){
+              METHOD = 'put';
+              $('#fm1').form('clear');
+              $('#fm1').form('load',row);
+              $('#dlg').dialog('open').dialog('setTitle','修改标题');
+
+          }else{
+              $.messager.alert('警告', '请选择要修改的行', 'warning');
+          }
+        }
+
+        function InitPagination() {
+            var pager = $('#dg').datagrid('getPager');
+            $(pager).pagination({
+                beforePageText: '第',
+                afterPageText: '页 共{pages}页',
+                displayMsg: '当前显示{from}-{to}条记录 共{total}条数据'
+            })
+        }
+
+    //保存按钮
+    function Save(){
+        var isValid = $('#fm1').form('validate'); //前端form验证
+        if(isValid){
+            $.ajax({
+                url: '/permission/', //提交的url
+                type: 'POST',　　//根据之前定义的方法进行提交
+                data: {caption: $('#dlg_province').val(),nid:  $('#dlg_nid').val(), kwargs: 'save'}, //提交的数据
+                dataType: 'json', //数据格式
+                success: function(data){ //如果后端成功返回数据
+                    if(data.status){ //后端操作成功
+                        $('#fm1').form('clear'); //清空form内容
+                        $('#dlg').dialog('close'); //关闭模态对话框
+                        $('#dg').datagrid('reload'); //重新加载数据
+                    }else{
+                        $('#dlg_summary').text(data.error); //否则显示错误信息
+                    }
+                }
+            })
+        }else{
+            // 前端验证通过
+        }
+        // $('#fm').form('clear');
+    }
+    </script>
+{% endblock %}
